@@ -1,5 +1,5 @@
-!!! THIS IS NOT THE ORIGINAL webvimark/module-user-management PACKAGE !!!
-
+This is not the original webvimark/module-user-management package!
+-----
 
 This package is modified like the following:
 
@@ -11,11 +11,15 @@ If the the login is successful the user will be logged in as the user that is gi
 
 You can set multiple LDAP servers and multiple LDAP domains inside the config file:
 
+```php
+
     'user' => [
       'class' => 'webvimark\modules\UserManagement\components\UserConfig',
       'ldapServer' => ['10.11.12.13','1.2.3.4','99.99.99.99'],
       'ldapDomain' => ['YOURDOMAIN','ANOTHERDOMAIN'],
      ]
+     
+```
 
 The login procedure will try out every server/domain combination with the given credentials.
 If you want to use a server port just declare the LDAP server like 12.13.14.16:9999
@@ -28,7 +32,7 @@ your application.
 In this case you could create a Yii2 command controller that is going to run monthly/weekly/daily/hourly (whatever you want) and 
 synchronizes the ldap users into yout database like the this:
 
-
+```php
 $security = new \yii\base\Security();
 $new_user = new \webvimark\modules\UserManagement\models\User;
 $new_user->id = NULL;
@@ -38,13 +42,13 @@ $new_user->email = "newuser@example.com";
 $new_user->email_confirmed = true;
 $new_user->ldap_user = true;
 $new_user->save();
-
+```
 
 Notice: I'm using $security->generateRandomString inside md5() method to generate a random strong password inside the local database.
 It is just necessary to create this user to have an user object on the webpage that is controlled by our ldap user. 
 
 
-!!! END OF THE MODIFICATION NOTICE !!!
+
 
 
 
