@@ -1,5 +1,5 @@
 {
-    "name": "dvdkrgr/module-user-management",
+    "name": "webvimark/module-user-management",
     "description": "Improved webvimark/module-user-management (hybrid mode local database + ldap)",
     "autoload": {
         "psr-4": {
