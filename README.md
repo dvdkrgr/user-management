@@ -3,7 +3,12 @@ This is not the original webvimark/module-user-management package!
 
 This package is modified like the following:
 
-It is possible to set the boolean attribute ldap_user for an user object ($user->ldap_user = true)
+It is possible to set the boolean attribute ldap_user for an user object:
+
+```php
+$user->ldap_user = true
+```
+
 A user declared as an ldap user will not be authenticated to the local database, instead it will be
 checked against the directory.
 
@@ -22,7 +27,7 @@ You can set multiple LDAP servers and multiple LDAP domains inside the config fi
 ```
 
 The login procedure will try out every server/domain combination with the given credentials.
-If you want to use a server port just declare the LDAP server like 12.13.14.16:9999
+If you want to use a server port just declare the LDAP server like ```12.13.14.16:9999```
 
 Example usage of this plugin:
 
