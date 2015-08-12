@@ -9,54 +9,61 @@ use Yii;
  * Class UserConfig
  * @package webvimark\modules\UserManagement\components
  */
-class UserConfig extends User
-{
-	/**
-	 * @inheritdoc
-	 */
-	public $identityClass = 'webvimark\modules\UserManagement\models\User';
+class UserConfig extends User {
 
-	/**
-	 * @inheritdoc
-	 */
-	public $enableAutoLogin = true;
-	
-	/**
- 	 * @inheritdoc
-	 */
-	public $cookieLifetime = 2592000;
-  
-	/**
-	 * @inheritdoc
-	 */
-	public $loginUrl = ['/user-management/auth/login'];
+  /**
+   * @inheritdoc
+   */
+  public $identityClass = 'webvimark\modules\UserManagement\models\User';
 
-	/**
-	 * Allows to call Yii::$app->user->isSuperadmin
-	 *
-	 * @return bool
-	 */
-	public function getIsSuperadmin()
-	{
-		return @Yii::$app->user->identity->superadmin == 1;
-	}
+  /**
+   * @inheritdoc
+   */
+  public $enableAutoLogin = true;
 
-	/**
-	 * @return string
-	 */
-	public function getUsername()
-	{
-		return @Yii::$app->user->identity->username;
-	}
+  /**
+   * @inheritdoc
+   */
+  public $cookieLifetime = 2592000;
 
-	/**
-	 * @inheritdoc
-	 */
-	protected function afterLogin($identity, $cookieBased, $duration)
-	{
-		AuthHelper::updatePermissions($identity);
+  /**
+   * @inheritdoc
+   */
+  public $ldapServer = array();
 
-		parent::afterLogin($identity, $cookieBased, $duration);
-	}
+  /**
+   * @inheritdoc
+   */
+  public $ldapDomain = array();
+
+  /**
+   * @inheritdoc
+   */
+  public $loginUrl = ['/user-management/auth/login'];
+
+  /**
+   * Allows to call Yii::$app->user->isSuperadmin
+   *
+   * @return bool
+   */
+  public function getIsSuperadmin() {
+    return @Yii::$app->user->identity->superadmin == 1;
+  }
+
+  /**
+   * @return string
+   */
+  public function getUsername() {
+    return @Yii::$app->user->identity->username;
+  }
+
+  /**
+   * @inheritdoc
+   */
+  protected function afterLogin($identity, $cookieBased, $duration) {
+    AuthHelper::updatePermissions($identity);
+
+    parent::afterLogin($identity, $cookieBased, $duration);
+  }
 
 }

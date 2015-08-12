@@ -22,104 +22,98 @@ use Yii;
  *
  * @property User $user
  */
-class UserVisitLog extends \webvimark\components\BaseActiveRecord
-{
-	CONST SESSION_TOKEN = '__visitorToken';
+class UserVisitLog extends \webvimark\components\BaseActiveRecord {
 
-	/**
-	 * Save new record in DB and write unique token in session
-	 *
-	 * @param int $userId
-	 */
-	public static function newVisitor($userId)
-	{
-		$browser = new Browser();
+  CONST SESSION_TOKEN = '__visitorToken';
 
-		$model             = new self();
-		$model->user_id    = $userId;
-		$model->token      = uniqid();
-		$model->ip         = LittleBigHelper::getRealIp();
-		$model->language   = isset( $_SERVER['HTTP_ACCEPT_LANGUAGE'] ) ? substr($_SERVER['HTTP_ACCEPT_LANGUAGE'], 0, 2) : '';
-		$model->browser    = $browser->getBrowser();
-		$model->os         = $browser->getPlatform();
-		$model->user_agent = $browser->getUserAgent();
-		$model->visit_time = time();
-		$model->save(false);
+  /**
+   * Save new record in DB and write unique token in session
+   *
+   * @param int $userId
+   */
+  public static function newVisitor($userId) {
+    $browser = new Browser();
 
-		Yii::$app->session->set(self::SESSION_TOKEN, $model->token);
-	}
+    $model = new self();
+    $model->user_id = $userId;
+    $model->token = uniqid();
+    $model->ip = LittleBigHelper::getRealIp();
+    $model->language = isset($_SERVER['HTTP_ACCEPT_LANGUAGE']) ? substr($_SERVER['HTTP_ACCEPT_LANGUAGE'], 0, 2) : '';
+    $model->browser = $browser->getBrowser();
+    $model->os = $browser->getPlatform();
+    $model->user_agent = $browser->getUserAgent();
+    $model->visit_time = time();
+    $model->save(false);
 
-	/**
-	 * Checks if token stored in session is equal to token from this user last visit
-	 * Logout if not
-	 */
-	public static function checkToken()
-	{
-		if (Yii::$app->user->isGuest)
-			return;
+    Yii::$app->session->set(self::SESSION_TOKEN, $model->token);
+  }
 
-		$model = static::find()
-			->andWhere(['user_id'=>Yii::$app->user->id])
-			->orderBy('id DESC')
-			->asArray()
-			->one();
+  /**
+   * Checks if token stored in session is equal to token from this user last visit
+   * Logout if not
+   */
+  public static function checkToken() {
+    if (Yii::$app->user->isGuest)
+      return;
 
-		if ( !$model OR ($model['token'] !== Yii::$app->session->get(self::SESSION_TOKEN)) )
-		{
-			Yii::$app->user->logout();
+    $model = static::find()
+        ->andWhere(['user_id' => Yii::$app->user->id])
+        ->orderBy('id DESC')
+        ->asArray()
+        ->one();
 
-			echo "<script> location.reload();</script>";
-			Yii::$app->end();
-		}
-	}
+    if (!$model OR ( $model['token'] !== Yii::$app->session->get(self::SESSION_TOKEN))) {
+      Yii::$app->user->logout();
 
-	/**
-	* @inheritdoc
-	*/
-	public static function tableName()
-	{
-		return Yii::$app->getModule('user-management')->user_visit_log_table;
-	}
+      echo "<script> location.reload();</script>";
+      Yii::$app->end();
+    }
+  }
 
-	/**
-	* @inheritdoc
-	*/
-	public function rules()
-	{
-		return [
-			[['token', 'ip', 'language', 'visit_time'], 'required'],
-			[['user_id', 'visit_time'], 'integer'],
-			[['token', 'user_agent'], 'string', 'max' => 255],
-			[['ip'], 'string', 'max' => 15],
-			[['os'], 'string', 'max' => 20],
-			[['browser'], 'string', 'max' => 30],
-			[['language'], 'string', 'max' => 2]
-		];
-	}
+  /**
+   * @inheritdoc
+   */
+  public static function tableName() {
+    return Yii::$app->getModule('user-management')->user_visit_log_table;
+  }
 
-	/**
-	* @inheritdoc
-	*/
-	public function attributeLabels()
-	{
-		return [
-			'id'         => 'ID',
-			'token'      => 'Token',
-			'ip'         => 'IP',
-			'language'   => UserManagementModule::t('back', 'Language'),
-			'browser'    => UserManagementModule::t('back', 'Browser'),
-			'os'         => UserManagementModule::t('back', 'OS'),
-			'user_agent' => UserManagementModule::t('back', 'User agent'),
-			'user_id'    => UserManagementModule::t('back', 'User'),
-			'visit_time' => UserManagementModule::t('back', 'Visit Time'),
-		];
-	}
+  /**
+   * @inheritdoc
+   */
+  public function rules() {
+    return [
+      [['token', 'ip', 'language', 'visit_time'], 'required'],
+      [['user_id', 'visit_time'], 'integer'],
+      [['token', 'user_agent'], 'string', 'max' => 255],
+      [['ip'], 'string', 'max' => 15],
+      [['os'], 'string', 'max' => 20],
+      [['browser'], 'string', 'max' => 30],
+      [['language'], 'string', 'max' => 2]
+    ];
+  }
 
-	/**
-	* @return \yii\db\ActiveQuery
-	*/
-	public function getUser()
-	{
-		return $this->hasOne(User::className(), ['id' => 'user_id']);
-	}
+  /**
+   * @inheritdoc
+   */
+  public function attributeLabels() {
+    return [
+      'id' => 'ID',
+      'token' => 'Token',
+      'ip' => 'IP',
+      'language' => UserManagementModule::t('back', 'Language'),
+      'browser' => UserManagementModule::t('back', 'Browser'),
+      'os' => UserManagementModule::t('back', 'OS'),
+      'user_agent' => UserManagementModule::t('back', 'User agent'),
+      'user_id' => UserManagementModule::t('back', 'User'),
+      'visit_time' => UserManagementModule::t('back', 'Visit Time'),
+    ];
+  }
+
+  /**
+   * @return \yii\db\ActiveQuery
+   */
+  public function getUser() {
+    return $this->hasOne(User::className(), ['id' => 'user_id']);
+  }
+
 }

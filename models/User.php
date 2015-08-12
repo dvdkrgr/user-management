@@ -19,6 +19,7 @@ use yii\behaviors\TimestampBehavior;
  * @property string $username
  * @property string $email
  * @property integer $email_confirmed
+ * @property integer $ldap_user
  * @property string $auth_key
  * @property string $password_hash
  * @property string $confirmation_token
@@ -29,391 +30,345 @@ use yii\behaviors\TimestampBehavior;
  * @property integer $created_at
  * @property integer $updated_at
  */
-class User extends UserIdentity
-{
-	const STATUS_ACTIVE = 1;
-	const STATUS_INACTIVE = 0;
-	const STATUS_BANNED = -1;
+class User extends UserIdentity {
 
-	/**
-	 * @var string
-	 */
-	public $gridRoleSearch;
+  const STATUS_ACTIVE = 1;
+  const STATUS_INACTIVE = 0;
+  const STATUS_BANNED = -1;
 
-	/**
-	 * @var string
-	 */
-	public $password;
+  /**
+   * @var string
+   */
+  public $gridRoleSearch;
 
-	/**
-	 * @var string
-	 */
-	public $repeat_password;
+  /**
+   * @var string
+   */
+  public $password;
 
-	/**
-	 * Store result in singleton to prevent multiple db requests with multiple calls
-	 *
-	 * @param bool $fromSingleton
-	 *
-	 * @return static
-	 */
-	public static function getCurrentUser($fromSingleton = true)
-	{
-		if ( !$fromSingleton )
-		{
-			return static::findOne(Yii::$app->user->id);
-		}
+  /**
+   * @var string
+   */
+  public $repeat_password;
 
-		$user = Singleton::getData('__currentUser');
+  /**
+   * Store result in singleton to prevent multiple db requests with multiple calls
+   *
+   * @param bool $fromSingleton
+   *
+   * @return static
+   */
+  public static function getCurrentUser($fromSingleton = true) {
+    if (!$fromSingleton) {
+      return static::findOne(Yii::$app->user->id);
+    }
 
-		if ( !$user )
-		{
-			$user = static::findOne(Yii::$app->user->id);
+    $user = Singleton::getData('__currentUser');
 
-			Singleton::setData('__currentUser', $user);
-		}
+    if (!$user) {
+      $user = static::findOne(Yii::$app->user->id);
 
-		return $user;
-	}
+      Singleton::setData('__currentUser', $user);
+    }
 
-	/**
-	 * Assign role to user
-	 *
-	 * @param int  $userId
-	 * @param string $roleName
-	 *
-	 * @return bool
-	 */
-	public static function assignRole($userId, $roleName)
-	{
-		try
-		{
-			Yii::$app->db->createCommand()
-				->insert(Yii::$app->getModule('user-management')->auth_assignment_table, [
-					'user_id' => $userId,
-					'item_name' => $roleName,
-					'created_at' => time(),
-				])->execute();
+    return $user;
+  }
 
-			AuthHelper::invalidatePermissions();
+  /**
+   * Assign role to user
+   *
+   * @param int  $userId
+   * @param string $roleName
+   *
+   * @return bool
+   */
+  public static function assignRole($userId, $roleName) {
+    try {
+      Yii::$app->db->createCommand()
+          ->insert(Yii::$app->getModule('user-management')->auth_assignment_table, [
+            'user_id' => $userId,
+            'item_name' => $roleName,
+            'created_at' => time(),
+          ])->execute();
 
-			return true;
-		}
-		catch (\Exception $e)
-		{
-			return false;
-		}
-	}
+      AuthHelper::invalidatePermissions();
 
-	/**
-	 * Revoke role from user
-	 *
-	 * @param int    $userId
-	 * @param string $roleName
-	 *
-	 * @return bool
-	 */
-	public static function revokeRole($userId, $roleName)
-	{
-		$result = Yii::$app->db->createCommand()
-			->delete(Yii::$app->getModule('user-management')->auth_assignment_table, ['user_id' => $userId, 'item_name' => $roleName])
-			->execute() > 0;
+      return true;
+    }
+    catch (\Exception $e) {
+      return false;
+    }
+  }
 
-		if ( $result )
-		{
-			AuthHelper::invalidatePermissions();
-		}
+  /**
+   * Revoke role from user
+   *
+   * @param int    $userId
+   * @param string $roleName
+   *
+   * @return bool
+   */
+  public static function revokeRole($userId, $roleName) {
+    $result = Yii::$app->db->createCommand()
+            ->delete(Yii::$app->getModule('user-management')->auth_assignment_table, ['user_id' => $userId, 'item_name' => $roleName])
+            ->execute() > 0;
 
-		return $result;
-	}
+    if ($result) {
+      AuthHelper::invalidatePermissions();
+    }
 
-	/**
-	 * @param string|array $roles
-	 * @param bool         $superAdminAllowed
-	 *
-	 * @return bool
-	 */
-	public static function hasRole($roles, $superAdminAllowed = true)
-	{
-		if ( $superAdminAllowed AND Yii::$app->user->isSuperadmin )
-		{
-			return true;
-		}
-		$roles = (array)$roles;
+    return $result;
+  }
 
-		AuthHelper::ensurePermissionsUpToDate();
+  /**
+   * @param string|array $roles
+   * @param bool         $superAdminAllowed
+   *
+   * @return bool
+   */
+  public static function hasRole($roles, $superAdminAllowed = true) {
+    if ($superAdminAllowed AND Yii::$app->user->isSuperadmin) {
+      return true;
+    }
+    $roles = (array) $roles;
 
-		return array_intersect($roles, Yii::$app->session->get(AuthHelper::SESSION_PREFIX_ROLES,[])) !== [];
-	}
+    AuthHelper::ensurePermissionsUpToDate();
 
-	/**
-	 * @param string $permission
-	 * @param bool   $superAdminAllowed
-	 *
-	 * @return bool
-	 */
-	public static function hasPermission($permission, $superAdminAllowed = true)
-	{
-		if ( $superAdminAllowed AND Yii::$app->user->isSuperadmin )
-		{
-			return true;
-		}
+    return array_intersect($roles, Yii::$app->session->get(AuthHelper::SESSION_PREFIX_ROLES, [])) !== [];
+  }
 
-		AuthHelper::ensurePermissionsUpToDate();
+  /**
+   * @param string $permission
+   * @param bool   $superAdminAllowed
+   *
+   * @return bool
+   */
+  public static function hasPermission($permission, $superAdminAllowed = true) {
+    if ($superAdminAllowed AND Yii::$app->user->isSuperadmin) {
+      return true;
+    }
 
-		return in_array($permission, Yii::$app->session->get(AuthHelper::SESSION_PREFIX_PERMISSIONS,[]));
-	}
+    AuthHelper::ensurePermissionsUpToDate();
 
-	/**
-	 * Useful for Menu widget
-	 *
-	 * <example>
-	 * 	...
-	 * 		[ 'label'=>'Some label', 'url'=>['/site/index'], 'visible'=>User::canRoute(['/site/index']) ]
-	 * 	...
-	 * </example>
-	 *
-	 * @param string|array $route
-	 * @param bool         $superAdminAllowed
-	 *
-	 * @return bool
-	 */
-	public static function canRoute($route, $superAdminAllowed = true)
-	{
-		if ( $superAdminAllowed AND Yii::$app->user->isSuperadmin )
-		{
-			return true;
-		}
+    return in_array($permission, Yii::$app->session->get(AuthHelper::SESSION_PREFIX_PERMISSIONS, []));
+  }
 
-		$baseRoute = AuthHelper::unifyRoute($route);
+  /**
+   * Useful for Menu widget
+   *
+   * <example>
+   * 	...
+   * 		[ 'label'=>'Some label', 'url'=>['/site/index'], 'visible'=>User::canRoute(['/site/index']) ]
+   * 	...
+   * </example>
+   *
+   * @param string|array $route
+   * @param bool         $superAdminAllowed
+   *
+   * @return bool
+   */
+  public static function canRoute($route, $superAdminAllowed = true) {
+    if ($superAdminAllowed AND Yii::$app->user->isSuperadmin) {
+      return true;
+    }
 
-		if ( Route::isFreeAccess($baseRoute) )
-		{
-			return true;
-		}
+    $baseRoute = AuthHelper::unifyRoute($route);
 
-		AuthHelper::ensurePermissionsUpToDate();
+    if (Route::isFreeAccess($baseRoute)) {
+      return true;
+    }
 
-		return Route::isRouteAllowed($baseRoute, Yii::$app->session->get(AuthHelper::SESSION_PREFIX_ROUTES,[]));
-	}
+    AuthHelper::ensurePermissionsUpToDate();
 
-	/**
-	 * getStatusList
-	 * @return array
-	 */
-	public static function getStatusList()
-	{
-		return array(
-			self::STATUS_ACTIVE   => UserManagementModule::t('back', 'Active'),
-			self::STATUS_INACTIVE => UserManagementModule::t('back', 'Inactive'),
-			self::STATUS_BANNED   => UserManagementModule::t('back', 'Banned'),
-		);
-	}
+    return Route::isRouteAllowed($baseRoute, Yii::$app->session->get(AuthHelper::SESSION_PREFIX_ROUTES, []));
+  }
 
-	/**
-	 * getStatusValue
-	 *
-	 * @param string $val
-	 *
-	 * @return string
-	 */
-	public static function getStatusValue($val)
-	{
-		$ar = self::getStatusList();
+  /**
+   * getStatusList
+   * @return array
+   */
+  public static function getStatusList() {
+    return array(
+      self::STATUS_ACTIVE => UserManagementModule::t('back', 'Active'),
+      self::STATUS_INACTIVE => UserManagementModule::t('back', 'Inactive'),
+      self::STATUS_BANNED => UserManagementModule::t('back', 'Banned'),
+    );
+  }
 
-		return isset( $ar[$val] ) ? $ar[$val] : $val;
-	}
+  /**
+   * getStatusValue
+   *
+   * @param string $val
+   *
+   * @return string
+   */
+  public static function getStatusValue($val) {
+    $ar = self::getStatusList();
 
-	/**
-	* @inheritdoc
-	*/
-	public static function tableName()
-	{
-		return Yii::$app->getModule('user-management')->user_table;
-	}
+    return isset($ar[$val]) ? $ar[$val] : $val;
+  }
 
-	/**
-	* @inheritdoc
-	*/
-	public function behaviors()
-	{
-		return [
-			TimestampBehavior::className(),
-		];
-	}
+  /**
+   * @inheritdoc
+   */
+  public static function tableName() {
+    return Yii::$app->getModule('user-management')->user_table;
+  }
 
-	/**
-	* @inheritdoc
-	*/
-	public function rules()
-	{
-		return [
-			['username', 'required'],
-			['username', 'unique'],
-			['username', 'trim'],
+  /**
+   * @inheritdoc
+   */
+  public function behaviors() {
+    return [
+      TimestampBehavior::className(),
+    ];
+  }
 
-			[['status', 'email_confirmed'], 'integer'],
+  /**
+   * @inheritdoc
+   */
+  public function rules() {
+    return [
+      ['username', 'required'],
+      ['username', 'unique'],
+      ['username', 'trim'],
+      [['status', 'email_confirmed', 'ldap_user'], 'integer'],
+      ['email', 'email'],
+      ['email', 'validateEmailConfirmedUnique'],
+      ['bind_to_ip', 'validateBindToIp'],
+      ['bind_to_ip', 'trim'],
+      ['bind_to_ip', 'string', 'max' => 255],
+      ['password', 'required', 'on' => ['newUser', 'changePassword']],
+      ['password', 'string', 'max' => 255, 'on' => ['newUser', 'changePassword']],
+      ['password', 'trim', 'on' => ['newUser', 'changePassword']],
+      ['repeat_password', 'required', 'on' => ['newUser', 'changePassword']],
+      ['repeat_password', 'compare', 'compareAttribute' => 'password'],
+    ];
+  }
 
-			['email', 'email'],
-			['email', 'validateEmailConfirmedUnique'],
+  /**
+   * Check that there is no such confirmed E-mail in the system
+   */
+  public function validateEmailConfirmedUnique() {
+    if ($this->email) {
+      $exists = User::findOne([
+            'email' => $this->email,
+            'email_confirmed' => 1,
+      ]);
 
-			['bind_to_ip', 'validateBindToIp'],
-			['bind_to_ip', 'trim'],
-			['bind_to_ip', 'string', 'max' => 255],
+      if ($exists AND $exists->id != $this->id) {
+        $this->addError('email', UserManagementModule::t('front', 'This E-mail already exists'));
+      }
+    }
+  }
 
-			['password', 'required', 'on'=>['newUser', 'changePassword']],
-			['password', 'string', 'max' => 255, 'on'=>['newUser', 'changePassword']],
-			['password', 'trim', 'on'=>['newUser', 'changePassword']],
+  /**
+   * Validate bind_to_ip attr to be in correct format
+   */
+  public function validateBindToIp() {
+    if ($this->bind_to_ip) {
+      $ips = explode(',', $this->bind_to_ip);
 
-			['repeat_password', 'required', 'on'=>['newUser', 'changePassword']],
-			['repeat_password', 'compare', 'compareAttribute'=>'password'],
-		];
-	}
+      foreach ($ips as $ip) {
+        if (!filter_var(trim($ip), FILTER_VALIDATE_IP)) {
+          $this->addError('bind_to_ip', UserManagementModule::t('back', "Wrong format. Enter valid IPs separated by comma"));
+        }
+      }
+    }
+  }
 
-	/**
-	 * Check that there is no such confirmed E-mail in the system
-	 */
-	public function validateEmailConfirmedUnique()
-	{
-		if ( $this->email )
-		{
-			$exists = User::findOne([
-				'email'           => $this->email,
-				'email_confirmed' => 1,
-			]);
+  /**
+   * @return array
+   */
+  public function attributeLabels() {
+    return [
+      'id' => 'ID',
+      'username' => UserManagementModule::t('back', 'Login'),
+      'superadmin' => UserManagementModule::t('back', 'Superadmin'),
+      'confirmation_token' => 'Confirmation Token',
+      'registration_ip' => UserManagementModule::t('back', 'Registration IP'),
+      'bind_to_ip' => UserManagementModule::t('back', 'Bind to IP'),
+      'status' => UserManagementModule::t('back', 'Status'),
+      'gridRoleSearch' => UserManagementModule::t('back', 'Roles'),
+      'created_at' => UserManagementModule::t('back', 'Created'),
+      'updated_at' => UserManagementModule::t('back', 'Updated'),
+      'password' => UserManagementModule::t('back', 'Password'),
+      'repeat_password' => UserManagementModule::t('back', 'Repeat password'),
+      'email_confirmed' => UserManagementModule::t('back', 'E-mail confirmed'),
+      'ldap_user' => UserManagementModule::t('back', 'LDAP-User'),
+      'email' => 'E-mail',
+    ];
+  }
 
-			if ( $exists AND $exists->id != $this->id )
-			{
-				$this->addError('email', UserManagementModule::t('front', 'This E-mail already exists'));
-			}
-		}
-	}
+  /**
+   * @return \yii\db\ActiveQuery
+   */
+  public function getRoles() {
+    return $this->hasMany(Role::className(), ['name' => 'item_name'])
+            ->viaTable(Yii::$app->getModule('user-management')->auth_assignment_table, ['user_id' => 'id']);
+  }
 
-	/**
-	 * Validate bind_to_ip attr to be in correct format
-	 */
-	public function validateBindToIp()
-	{
-		if ( $this->bind_to_ip )
-		{
-			$ips = explode(',', $this->bind_to_ip);
+  /**
+   * Make sure user will not deactivate himself and superadmin could not demote himself
+   * Also don't let non-superadmin edit superadmin
+   *
+   * @inheritdoc
+   */
+  public function beforeSave($insert) {
+    if ($insert) {
+      if (php_sapi_name() != 'cli') {
+        $this->registration_ip = LittleBigHelper::getRealIp();
+      }
+      $this->generateAuthKey();
+    }
+    else {
+      // Console doesn't have Yii::$app->user, so we skip it for console
+      if (php_sapi_name() != 'cli') {
+        if (Yii::$app->user->id == $this->id) {
+          // Make sure user will not deactivate himself
+          $this->status = static::STATUS_ACTIVE;
 
-			foreach ($ips as $ip)
-			{
-				if ( !filter_var(trim($ip), FILTER_VALIDATE_IP) )
-				{
-					$this->addError('bind_to_ip', UserManagementModule::t('back', "Wrong format. Enter valid IPs separated by comma"));
-				}
-			}
-		}
-	}
+          // Superadmin could not demote himself
+          if (Yii::$app->user->isSuperadmin AND $this->superadmin != 1) {
+            $this->superadmin = 1;
+          }
+        }
 
-	/**
-	 * @return array
-	 */
-	public function attributeLabels()
-	{
-		return [
-			'id'                 => 'ID',
-			'username'           => UserManagementModule::t('back', 'Login'),
-			'superadmin'         => UserManagementModule::t('back', 'Superadmin'),
-			'confirmation_token' => 'Confirmation Token',
-			'registration_ip'    => UserManagementModule::t('back', 'Registration IP'),
-			'bind_to_ip'         => UserManagementModule::t('back', 'Bind to IP'),
-			'status'             => UserManagementModule::t('back', 'Status'),
-			'gridRoleSearch'     => UserManagementModule::t('back', 'Roles'),
-			'created_at'         => UserManagementModule::t('back', 'Created'),
-			'updated_at'         => UserManagementModule::t('back', 'Updated'),
-			'password'           => UserManagementModule::t('back', 'Password'),
-			'repeat_password'    => UserManagementModule::t('back', 'Repeat password'),
-			'email_confirmed'    => UserManagementModule::t('back', 'E-mail confirmed'),
-			'email'              => 'E-mail',
-		];
-	}
+        // Don't let non-superadmin edit superadmin
+        if (!Yii::$app->user->isSuperadmin AND $this->oldAttributes['superadmin'] == 1) {
+          return false;
+        }
+      }
+    }
 
-	/**
-	 * @return \yii\db\ActiveQuery
-	 */
-	public function getRoles()
-	{
-		return $this->hasMany(Role::className(), ['name' => 'item_name'])
-			->viaTable(Yii::$app->getModule('user-management')->auth_assignment_table, ['user_id'=>'id']);
-	}
+    // If password has been set, than create password hash
+    if ($this->password) {
+      $this->setPassword($this->password);
+    }
 
+    return parent::beforeSave($insert);
+  }
 
-	/**
-	 * Make sure user will not deactivate himself and superadmin could not demote himself
-	 * Also don't let non-superadmin edit superadmin
-	 *
-	 * @inheritdoc
-	 */
-	public function beforeSave($insert)
-	{
-		if ( $insert )
-		{
-			if ( php_sapi_name() != 'cli' )
-			{
-				$this->registration_ip = LittleBigHelper::getRealIp();
-			}
-			$this->generateAuthKey();
-		}
-		else
-		{
-			// Console doesn't have Yii::$app->user, so we skip it for console
-			if ( php_sapi_name() != 'cli' )
-			{
-				if ( Yii::$app->user->id == $this->id )
-				{
-					// Make sure user will not deactivate himself
-					$this->status = static::STATUS_ACTIVE;
+  /**
+   * Don't let delete yourself and don't let non-superadmin delete superadmin
+   *
+   * @inheritdoc
+   */
+  public function beforeDelete() {
+    // Console doesn't have Yii::$app->user, so we skip it for console
+    if (php_sapi_name() != 'cli') {
+      // Don't let delete yourself
+      if (Yii::$app->user->id == $this->id) {
+        return false;
+      }
 
-					// Superadmin could not demote himself
-					if ( Yii::$app->user->isSuperadmin AND $this->superadmin != 1 )
-					{
-						$this->superadmin = 1;
-					}
-				}
+      // Don't let non-superadmin delete superadmin
+      if (!Yii::$app->user->isSuperadmin AND $this->superadmin == 1) {
+        return false;
+      }
+    }
 
-				// Don't let non-superadmin edit superadmin
-				if ( !Yii::$app->user->isSuperadmin AND $this->oldAttributes['superadmin'] == 1 )
-				{
-					return false;
-				}
-			}
-		}
+    return parent::beforeDelete();
+  }
 
-		// If password has been set, than create password hash
-		if ( $this->password )
-		{
-			$this->setPassword($this->password);
-		}
-
-		return parent::beforeSave($insert);
-	}
-
-	/**
-	 * Don't let delete yourself and don't let non-superadmin delete superadmin
-	 *
-	 * @inheritdoc
-	 */
-	public function beforeDelete()
-	{
-		// Console doesn't have Yii::$app->user, so we skip it for console
-		if ( php_sapi_name() != 'cli' )
-		{
-			// Don't let delete yourself
-			if ( Yii::$app->user->id == $this->id )
-			{
-				return false;
-			}
-
-			// Don't let non-superadmin delete superadmin
-			if ( !Yii::$app->user->isSuperadmin AND $this->superadmin == 1 )
-			{
-				return false;
-			}
-		}
-
-		return parent::beforeDelete();
-	}
 }

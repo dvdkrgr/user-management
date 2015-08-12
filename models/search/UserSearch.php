@@ -10,68 +10,65 @@ use webvimark\modules\UserManagement\models\User;
 /**
  * UserSearch represents the model behind the search form about `webvimark\modules\UserManagement\models\User`.
  */
-class UserSearch extends User
-{
-	public function rules()
-	{
-		return [
-			[['id', 'superadmin', 'status', 'created_at', 'updated_at', 'email_confirmed'], 'integer'],
-			[['username', 'gridRoleSearch', 'registration_ip', 'email'], 'string'],
-		];
-	}
+class UserSearch extends User {
 
-	public function scenarios()
-	{
-		// bypass scenarios() implementation in the parent class
-		return Model::scenarios();
-	}
+  public function rules() {
+    return [
+      [['id', 'superadmin', 'status', 'created_at', 'updated_at', 'email_confirmed', 'ldap_user'], 'integer'],
+      [['username', 'gridRoleSearch', 'registration_ip', 'email'], 'string'],
+    ];
+  }
 
-	public function search($params)
-	{
-		$query = User::find();
+  public function scenarios() {
+    // bypass scenarios() implementation in the parent class
+    return Model::scenarios();
+  }
 
-		$query->with(['roles']);
+  public function search($params) {
+    $query = User::find();
 
-		if ( !Yii::$app->user->isSuperadmin )
-		{
-			$query->where(['superadmin'=>0]);
-		}
+    $query->with(['roles']);
 
-		$dataProvider = new ActiveDataProvider([
-			'query' => $query,
-			'pagination' => [
-				'pageSize' => Yii::$app->request->cookies->getValue('_grid_page_size', 20),
-			],
-			'sort'=>[
-				'defaultOrder'=>[
-					'id'=>SORT_DESC,
-				],
-			],
-		]);
+    if (!Yii::$app->user->isSuperadmin) {
+      $query->where(['superadmin' => 0]);
+    }
 
-		if (!($this->load($params) && $this->validate())) {
-			return $dataProvider;
-		}
+    $dataProvider = new ActiveDataProvider([
+      'query' => $query,
+      'pagination' => [
+        'pageSize' => Yii::$app->request->cookies->getValue('_grid_page_size', 20),
+      ],
+      'sort' => [
+        'defaultOrder' => [
+          'id' => SORT_DESC,
+        ],
+      ],
+    ]);
 
-		if ( $this->gridRoleSearch )
-		{
-			$query->joinWith(['roles']);
-		}
+    if (!($this->load($params) && $this->validate())) {
+      return $dataProvider;
+    }
 
-		$query->andFilterWhere([
-			'id' => $this->id,
-			'superadmin' => $this->superadmin,
-			'status' => $this->status,
-			Yii::$app->getModule('user-management')->auth_item_table . '.name' => $this->gridRoleSearch,
-			'registration_ip' => $this->registration_ip,
-			'created_at' => $this->created_at,
-			'updated_at' => $this->updated_at,
-			'email_confirmed' => $this->email_confirmed,
-		]);
+    if ($this->gridRoleSearch) {
+      $query->joinWith(['roles']);
+    }
 
-        	$query->andFilterWhere(['like', 'username', $this->username])
-			->andFilterWhere(['like', 'email', $this->email]);
+    $query->andFilterWhere([
+      'id' => $this->id,
+      'superadmin' => $this->superadmin,
+      'status' => $this->status,
+      Yii::$app->getModule('user-management')->auth_item_table . '.name' => $this->gridRoleSearch,
+      'registration_ip' => $this->registration_ip,
+      'created_at' => $this->created_at,
+      'updated_at' => $this->updated_at,
+      'email_confirmed' => $this->email_confirmed,
+      'ldap_user' => $this->ldap_user,
+    ]);
 
-		return $dataProvider;
-	}
+    $query->andFilterWhere(['like', 'username', $this->username])
+        ->andFilterWhere(['like', 'email', $this->email]);
+
+    return $dataProvider;
+  }
+
 }
